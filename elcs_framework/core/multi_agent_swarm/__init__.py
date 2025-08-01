@@ -1586,7 +1586,8 @@ class SwarmIntelligence:
                 emergence_potential=0.7  # High potential for emergence
             )
             self.process_entities[agent.agent_id] = process_entity
-            # Note: Would integrate with DEN.add_entity() if that method exists
+            # Integrate with DEN
+            self.den.add_process_entity(process_entity)
 
         logger.debug(f"Added agent {agent.agent_id} to swarm (total: {len(self.agents)})")
         return agent.agent_id
@@ -1763,7 +1764,6 @@ class SwarmIntelligence:
         """Execute role assignment and specialization phase"""
         role_assignments = {}
         role_changes = 0
-        specialization_metrics = {}
 
         for agent_id, agent in self.agents.items():
             try:

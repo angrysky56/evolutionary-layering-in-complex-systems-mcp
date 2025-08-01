@@ -167,11 +167,17 @@ class ELCSFrameworkManager:
             )
 
             # Create agents with specified capabilities
-            default_capabilities = agent_capabilities or {
-                'processing_power': 0.6,
-                'memory_capacity': 0.5,
-                'learning_rate': 0.15,
-                'communication_efficiency': 0.6
+            # Map user parameters to AgentCapabilities parameters
+            raw_capabilities = agent_capabilities or {}
+
+            # Handle parameter name variations and provide defaults
+            default_capabilities = {
+                'processing_power': raw_capabilities.get('processing_power', 0.6),
+                'memory_capacity': raw_capabilities.get('memory_capacity', 0.5),
+                'learning_rate': raw_capabilities.get('learning_rate',
+                                                    raw_capabilities.get('adaptation_rate', 0.15)),
+                'communication_efficiency': raw_capabilities.get('communication_efficiency',
+                                                               raw_capabilities.get('communication_range', 0.6))
             }
 
             agent_ids = []

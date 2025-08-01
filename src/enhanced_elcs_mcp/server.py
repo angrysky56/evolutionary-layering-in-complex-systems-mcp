@@ -139,7 +139,12 @@ async def create_swarm_simulation(
         swarm_id: Unique identifier for the swarm
         network_id: Associated Dynamic Emergence Network ID (optional)
         agent_count: Number of agents to create (default: 10)
-        agent_capabilities: Default capabilities for agents
+        agent_capabilities: Default capabilities for agents. Supported parameters:
+            - processing_power: Computational ability (0.1-1.0, default: 0.6)
+            - memory_capacity: Information storage capacity (0.1-1.0, default: 0.5)
+            - learning_rate: Rate of adaptation (0.01-0.5, default: 0.15)
+            - communication_efficiency: Inter-agent communication effectiveness (0.1-1.0, default: 0.6)
+            - Alternative names accepted: adaptation_rate (for learning_rate), communication_range (for communication_efficiency)
         config: Additional swarm configuration parameters
 
     Returns:
@@ -150,7 +155,7 @@ async def create_swarm_simulation(
             "research_swarm_01",
             "research_network_01",
             15,
-            {"processing_power": 0.7, "memory_capacity": 0.6}
+            {"processing_power": 0.7, "memory_capacity": 0.6, "learning_rate": 0.15, "communication_efficiency": 0.8}
         )
     """
     try:

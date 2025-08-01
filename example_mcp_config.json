@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "elcs-framework": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path-to/evolutionary-layering-in-complex-systems-mcp/src/enhanced_elcs_mcp",
+        "run",
+        "server.py"
+      ]
+    }
+  }
+}

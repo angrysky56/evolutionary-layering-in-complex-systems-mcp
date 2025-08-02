@@ -27,17 +27,15 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from abc import ABC, abstractmethod
-from collections import defaultdict, deque
+import numpy as np
+import networkx as nx
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
-import networkx as nx
-import numpy as np
-
-from ..dynamic_emergence_networks import DynamicEmergenceNetwork, ProcessEntity, ProcessScale, ProcessSignature
+from ..dynamic_emergence_networks import DynamicEmergenceNetwork, ProcessEntity, ProcessScale
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +108,10 @@ class CollectiveIntelligenceAgent(Protocol):
 
     def get_specialization_preference(self) -> dict[SpecializationRole, float]:
         """Return preference scores for each specialization role"""
+        ...
+
+    def get_shareable_info(self, requester: CollectiveIntelligenceAgent, trust_level: float) -> dict[str, Any]:
+        """Get information that can be shared with a requesting agent (prevents recursion)"""
         ...
 
 
@@ -206,12 +208,14 @@ class SwarmAgent(CollectiveIntelligenceAgent):
             if info_to_share:
                 shared_info[peer.agent_id] = info_to_share
 
-            # Receive information from peer
-            peer_info = peer.communicate_with_peers([self])
-            if self.agent_id in peer_info:
-                received_info[peer.agent_id] = peer_info[self.agent_id]
-                # Update trust based on information quality
-                self._update_peer_trust(peer.agent_id, peer_info[self.agent_id])
+            # Receive information from peer (ONE-WAY to prevent recursion)
+            # We'll get peer's info through the shared_info they provide
+            if hasattr(peer, 'get_shareable_info'):
+                peer_info = peer.get_shareable_info(self, trust_level)
+                if peer_info:
+                    received_info[peer.agent_id] = peer_info
+                    # Update trust based on information quality
+                    self._update_peer_trust(peer.agent_id, peer_info)
 
         # Record interaction
         interaction_record = {
@@ -393,6 +397,10 @@ class SwarmAgent(CollectiveIntelligenceAgent):
             }
 
         return shareable_info
+
+    def get_shareable_info(self, requester: CollectiveIntelligenceAgent, trust_level: float) -> dict[str, Any]:
+        """Get information that can be shared with a requesting agent (prevents recursion)"""
+        return self._select_information_to_share(requester, trust_level)
 
     def _update_peer_trust(self, peer_id: str, peer_info: dict[str, Any]) -> None:
         """Update trust level with peer based on information quality"""

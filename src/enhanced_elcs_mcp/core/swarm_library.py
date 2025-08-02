@@ -434,12 +434,15 @@ class SwarmLibrary:
 
             # Add to results if any relevance
             if relevance_score > 0 or not any([query, tags, behavior_types, performance_range, research_category]):
-                result = metadata.to_dict()
-                result['relevance_score'] = relevance_score
+                result = {
+                    'swarm_id': swarm_id,
+                    'score': relevance_score,
+                    'metadata': metadata.to_dict()
+                }
                 results.append(result)
 
         # Sort by relevance and limit
-        results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        results.sort(key=lambda x: x['score'], reverse=True)
         return results[:limit]
 
     def _fuzzy_text_match(self, query: str, text: str) -> float:

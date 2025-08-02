@@ -29,7 +29,7 @@ from elcs_framework.core.dynamic_emergence_networks import DynamicEmergenceNetwo
 from elcs_framework.core.multi_agent_swarm import AgentCapabilities, CollectiveDecisionMaker, CollectiveDecisionType, EmergenceBehaviorDetector, SpecializationRole, SwarmAgent, SwarmIntelligence
 
 # Import Swarm Library
-from .swarm_library import SwarmLibrary, SwarmMetadata
+from .swarm_library import SwarmLibrary
 
 # Configure logging to stderr for MCP compatibility
 logging.basicConfig(

@@ -1,0 +1,37 @@
+{
+  "swarm_id": "research_swarm_01",
+  "creation_timestamp": 1754099343.5537496,
+  "last_updated": 1754099343.5537496,
+  "creator": "ELCS Framework (Auto-stored)",
+  "description": "Auto-stored swarm with 3 agents",
+  "tags": [
+    "auto-stored",
+    "simulation"
+  ],
+  "agent_count": 3,
+  "emergence_threshold": 0.6,
+  "stability_window": 10,
+  "peak_performance": 0.03885134788647517,
+  "average_performance": 0.03808386040850352,
+  "total_cycles": 3,
+  "successful_cycles": 3,
+  "dominant_behaviors": [],
+  "specialization_patterns": {
+    "coordinator": 2,
+    "explorer": 1,
+    "specialist": 1,
+    "exploiter": 2,
+    "communicator": 1,
+    "generalist": 2,
+    "validator": 1
+  },
+  "coordination_metrics": {},
+  "research_category": "simulation",
+  "experiment_notes": "Auto-generated from simulation",
+  "success_indicators": [],
+  "failure_patterns": [],
+  "data_folder": "",
+  "config_file": "",
+  "simulation_data": "",
+  "emergence_data": ""
+}

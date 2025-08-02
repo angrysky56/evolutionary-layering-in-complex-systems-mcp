@@ -1,0 +1,184 @@
+{
+  "swarm_id": "research_swarm_01",
+  "simulation_status": "completed",
+  "environment_state": {
+    "complexity": 0.7,
+    "resources": 0.8,
+    "opportunities": 0.6,
+    "threats": 0.3
+  },
+  "overall_metrics": {
+    "total_cycles": 3,
+    "successful_cycles": 3,
+    "average_performance": 0.03808386040850352,
+    "peak_performance": 0.03885134788647517,
+    "emergence_events": 0,
+    "behaviors_detected": []
+  },
+  "cycle_results": [
+    {
+      "cycle": 1,
+      "performance": 0.03885134788647517,
+      "emergence_strength": 0.0,
+      "behaviors_detected": 0,
+      "duration": 0.004671335220336914,
+      "status": "completed"
+    },
+    {
+      "cycle": 2,
+      "performance": 0.037963761437293485,
+      "emergence_strength": 0.0,
+      "behaviors_detected": 0,
+      "duration": 0.004097700119018555,
+      "status": "completed"
+    },
+    {
+      "cycle": 3,
+      "performance": 0.0374364719017419,
+      "emergence_strength": 0.0,
+      "behaviors_detected": 0,
+      "duration": 0.006313800811767578,
+      "status": "completed"
+    }
+  ],
+  "final_analytics": {
+    "swarm_state": {
+      "agent_count": 10,
+      "role_distribution": {
+        "coordinator": 2,
+        "explorer": 1,
+        "specialist": 1,
+        "exploiter": 2,
+        "communicator": 1,
+        "generalist": 2,
+        "validator": 1
+      },
+      "average_performance": 0.2821529223297953,
+      "average_experience": 0.0,
+      "active_emergent_behaviors": 0,
+      "behavior_types": [],
+      "performance_trend": 0.0,
+      "swarm_active": true,
+      "total_cycles": 3
+    },
+    "current_metrics": {},
+    "performance_history": [
+      0.03885134788647517,
+      0.037963761437293485,
+      0.0374364719017419
+    ],
+    "role_assignment_history": [
+      {
+        "749bd548-a6d7-4fd8-812b-ffa3af176a87": "specialist",
+        "e5efb22c-bc9a-4147-bb01-0a6df421d148": "coordinator",
+        "b554d221-ebc8-4c71-8c52-abb288428559": "exploiter",
+        "b001cf1b-11cc-4c38-86be-84ed84355c51": "communicator",
+        "73961d1c-6c9e-431d-8631-a7e2f9b78c56": "generalist",
+        "40a8ea5c-95e9-46f3-8567-c18f24812cd6": "explorer",
+        "adbb7af0-6060-4691-9f3c-f602331348a6": "validator",
+        "9be3a147-ec56-4c6e-b95e-0aad9b91cc7a": "generalist",
+        "1a8f34fb-b96e-43ce-bbb6-cb78756c04a5": "innovator",
+        "c8fbf02b-7482-4186-95c2-4c661db7b1d2": "exploiter"
+      },
+      {
+        "749bd548-a6d7-4fd8-812b-ffa3af176a87": "coordinator",
+        "e5efb22c-bc9a-4147-bb01-0a6df421d148": "specialist",
+        "b554d221-ebc8-4c71-8c52-abb288428559": "specialist",
+        "b001cf1b-11cc-4c38-86be-84ed84355c51": "exploiter",
+        "73961d1c-6c9e-431d-8631-a7e2f9b78c56": "communicator",
+        "40a8ea5c-95e9-46f3-8567-c18f24812cd6": "generalist",
+        "adbb7af0-6060-4691-9f3c-f602331348a6": "explorer",
+        "9be3a147-ec56-4c6e-b95e-0aad9b91cc7a": "validator",
+        "1a8f34fb-b96e-43ce-bbb6-cb78756c04a5": "generalist",
+        "c8fbf02b-7482-4186-95c2-4c661db7b1d2": "innovator"
+      },
+      {
+        "749bd548-a6d7-4fd8-812b-ffa3af176a87": "coordinator",
+        "e5efb22c-bc9a-4147-bb01-0a6df421d148": "explorer",
+        "b554d221-ebc8-4c71-8c52-abb288428559": "coordinator",
+        "b001cf1b-11cc-4c38-86be-84ed84355c51": "specialist",
+        "73961d1c-6c9e-431d-8631-a7e2f9b78c56": "exploiter",
+        "40a8ea5c-95e9-46f3-8567-c18f24812cd6": "communicator",
+        "adbb7af0-6060-4691-9f3c-f602331348a6": "generalist",
+        "9be3a147-ec56-4c6e-b95e-0aad9b91cc7a": "exploiter",
+        "1a8f34fb-b96e-43ce-bbb6-cb78756c04a5": "validator",
+        "c8fbf02b-7482-4186-95c2-4c661db7b1d2": "generalist"
+      }
+    ],
+    "current_emergent_behaviors": [],
+    "cross_scale_interactions": [],
+    "agent_summaries": {
+      "749bd548-a6d7-4fd8-812b-ffa3af176a87": {
+        "role": "coordinator",
+        "performance": 0.24703273347068466,
+        "interactions": 0,
+        "modifications": 1,
+        "trust_relationships": 0
+      },
+      "e5efb22c-bc9a-4147-bb01-0a6df421d148": {
+        "role": "explorer",
+        "performance": 0.18212048628317024,
+        "interactions": 0,
+        "modifications": 1,
+        "trust_relationships": 0
+      },
+      "b554d221-ebc8-4c71-8c52-abb288428559": {
+        "role": "coordinator",
+        "performance": 0.2701676287790649,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "b001cf1b-11cc-4c38-86be-84ed84355c51": {
+        "role": "specialist",
+        "performance": 0.21227312269632903,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "73961d1c-6c9e-431d-8631-a7e2f9b78c56": {
+        "role": "exploiter",
+        "performance": 0.31843617720462153,
+        "interactions": 0,
+        "modifications": 1,
+        "trust_relationships": 0
+      },
+      "40a8ea5c-95e9-46f3-8567-c18f24812cd6": {
+        "role": "communicator",
+        "performance": 0.32194782495320995,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "adbb7af0-6060-4691-9f3c-f602331348a6": {
+        "role": "generalist",
+        "performance": 0.30153855577844363,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "9be3a147-ec56-4c6e-b95e-0aad9b91cc7a": {
+        "role": "exploiter",
+        "performance": 0.3495559493160014,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "1a8f34fb-b96e-43ce-bbb6-cb78756c04a5": {
+        "role": "validator",
+        "performance": 0.3401508847643518,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      },
+      "c8fbf02b-7482-4186-95c2-4c661db7b1d2": {
+        "role": "generalist",
+        "performance": 0.2783058600520753,
+        "interactions": 0,
+        "modifications": 0,
+        "trust_relationships": 0
+      }
+    }
+  },
+  "timestamp": 1754099343.553657
+}

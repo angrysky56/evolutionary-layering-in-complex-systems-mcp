@@ -1,0 +1,29 @@
+{
+  "swarm_id": "exploration_swarm_01",
+  "creation_timestamp": 1754099343.2289567,
+  "last_updated": 1754099343.2289567,
+  "creator": "ELCS Framework (Manual)",
+  "description": "Adaptive exploration swarm",
+  "tags": [
+    "exploration",
+    "adaptive"
+  ],
+  "agent_count": 0,
+  "emergence_threshold": 0.6,
+  "stability_window": 10,
+  "peak_performance": 0.0,
+  "average_performance": 0.0,
+  "total_cycles": 0,
+  "successful_cycles": 0,
+  "dominant_behaviors": [],
+  "specialization_patterns": {},
+  "coordination_metrics": {},
+  "research_category": "exploration",
+  "experiment_notes": "",
+  "success_indicators": [],
+  "failure_patterns": [],
+  "data_folder": "",
+  "config_file": "",
+  "simulation_data": "",
+  "emergence_data": ""
+}

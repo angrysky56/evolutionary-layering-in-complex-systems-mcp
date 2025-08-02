@@ -20,13 +20,16 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
 # Import ELCS Framework components
 from elcs_framework.core.dynamic_emergence_networks import DynamicEmergenceNetwork, ProcessScale, ProcessSignature
 from elcs_framework.core.multi_agent_swarm import AgentCapabilities, CollectiveDecisionMaker, CollectiveDecisionType, EmergenceBehaviorDetector, SpecializationRole, SwarmAgent, SwarmIntelligence
+
+# Import Swarm Library
+from .swarm_library import SwarmLibrary, SwarmMetadata
 
 # Configure logging to stderr for MCP compatibility
 logging.basicConfig(
@@ -60,10 +63,14 @@ class ELCSFrameworkManager:
         self.active_swarms: dict[str, SwarmIntelligence] = {}
         self.emergence_detectors: dict[str, EmergenceBehaviorDetector] = {}
         self.decision_makers: dict[str, CollectiveDecisionMaker] = {}
+        self.swarm_configs: dict[str, dict[str, Any]] = {}  # Store swarm configurations
 
         # Simulation state tracking
         self.simulation_results: dict[str, dict[str, Any]] = {}
         self.analysis_cache: dict[str, dict[str, Any]] = {}
+
+        # Initialize Swarm Library
+        self.swarm_library = SwarmLibrary()
 
         logger.info("ELCS Framework Manager initialized")
 
@@ -165,6 +172,9 @@ class ELCSFrameworkManager:
                 max_agents=max_agents,
                 emergence_detection_interval=detection_interval
             )
+
+            # Store swarm metadata for later access
+            self.swarm_configs[swarm_id] = swarm_config
 
             # Create agents with specified capabilities
             # Map user parameters to AgentCapabilities parameters
@@ -356,6 +366,10 @@ class ELCSFrameworkManager:
             # Cache results for later analysis
             self.simulation_results[swarm_id] = result
 
+            # Auto-store successful swarms in library
+            if overall_metrics['successful_cycles'] > 0:
+                await self._auto_store_swarm_in_library(swarm_id, result)
+
             logger.info(
                 f"Completed swarm simulation: {swarm_id}, "
                 f"{overall_metrics['successful_cycles']}/{cycles} cycles successful, "
@@ -393,8 +407,12 @@ class ELCSFrameworkManager:
             detector = self.emergence_detectors.get(swarm_id)
 
             if not detector:
-                # Create detector if not exists
-                detector = EmergenceBehaviorDetector()
+                # Create detector if not exists, using stored swarm config
+                swarm_config = self.swarm_configs.get(swarm_id, {})
+                detector = EmergenceBehaviorDetector(
+                    detection_threshold=swarm_config.get('emergence_threshold', 0.6),
+                    stability_window=swarm_config.get('stability_window', 10)
+                )
                 self.emergence_detectors[swarm_id] = detector
 
             # Get real agents from swarm
@@ -419,7 +437,13 @@ class ELCSFrameworkManager:
             # Calculate real emergence metrics
             emergence_metrics = self._calculate_emergence_metrics(agents, detected_behaviors)
 
-            emergence_analysis = {
+            # Intelligently summarize the results to avoid token overflow
+            summarized_analysis = self._summarize_emergence_analysis(
+                swarm_id, detected_behaviors, interaction_data, emergence_metrics, agents
+            )
+
+            # Cache full analysis results for detailed inspection
+            full_analysis = {
                 "swarm_id": swarm_id,
                 "analysis_timestamp": time.time(),
                 "behaviors_detected": len(detected_behaviors),
@@ -437,12 +461,14 @@ class ELCSFrameworkManager:
                 "interaction_data": interaction_data,
                 "emergence_metrics": emergence_metrics
             }
+            self.analysis_cache[f"{swarm_id}_emergence_full"] = full_analysis
 
-            # Cache analysis results
-            self.analysis_cache[f"{swarm_id}_emergence"] = emergence_analysis
+            # Auto-update swarm in library with emergence data
+            if detected_behaviors:
+                await self._update_swarm_in_library(swarm_id, summarized_analysis)
 
             logger.info(f"Completed emergence detection for swarm: {swarm_id}")
-            return emergence_analysis
+            return summarized_analysis
 
         except Exception as e:
             raise ELCSIntegrationError(f"Failed to detect emergence patterns: {e}") from e
@@ -821,6 +847,30 @@ class ELCSFrameworkManager:
             "timestamp": time.time()
         }
 
+    async def get_detailed_analysis(self, swarm_id: str, analysis_type: str = "emergence") -> dict[str, Any]:
+        """
+        Retrieve detailed (full) analysis data for specific swarm and analysis type.
+
+        Args:
+            swarm_id: ID of swarm to get detailed data for
+            analysis_type: Type of analysis ("emergence", "simulation", etc.)
+
+        Returns:
+            Full detailed analysis data
+        """
+        cache_key = f"{swarm_id}_{analysis_type}_full"
+
+        if cache_key in self.analysis_cache:
+            return self.analysis_cache[cache_key]
+        elif swarm_id in self.simulation_results and analysis_type == "simulation":
+            return self.simulation_results[swarm_id]
+        else:
+            return {
+                "error": f"Detailed {analysis_type} data not found for swarm {swarm_id}",
+                "available_cache_keys": list(self.analysis_cache.keys()),
+                "available_simulation_results": list(self.simulation_results.keys())
+            }
+
     def cleanup_resources(self) -> None:
         """Clean up all ELCS Framework resources."""
         try:
@@ -1007,7 +1057,6 @@ class ELCSFrameworkManager:
 
         if performance_trends:
             # Measure how similar the learning trends are (coherence)
-            mean_trend = np.mean(performance_trends)
             trend_variance = np.var(performance_trends)
             learning_coherence = max(0.0, 1.0 - float(trend_variance))  # High coherence = low variance
         else:
@@ -1019,3 +1068,489 @@ class ELCSFrameworkManager:
             "coordination_level": float(coordination_level),
             "learning_coherence": float(learning_coherence)
         }
+
+    def _summarize_emergence_analysis(self,
+                                    swarm_id: str,
+                                    detected_behaviors: list,
+                                    interaction_data: dict[str, Any],
+                                    emergence_metrics: dict[str, float],
+                                    agents: list) -> dict[str, Any]:
+        """
+        Intelligently summarize emergence analysis to prevent token overflow
+        while preserving key insights and actionable information.
+        """
+        # Extract behavior summary - top behaviors by strength
+        behavior_summary = []
+        if detected_behaviors:
+            # Sort by emergence strength and take top 5
+            top_behaviors = sorted(detected_behaviors,
+                                 key=lambda b: b.emergence_strength, reverse=True)[:5]
+
+            for behavior in top_behaviors:
+                # Convert pattern_signature to string if it's a dict
+                pattern_key = "none"
+                if behavior.pattern_signature:
+                    if isinstance(behavior.pattern_signature, dict):
+                        pattern_key = str(behavior.pattern_signature)[:50]
+                    else:
+                        pattern_key = str(behavior.pattern_signature)[:50]
+
+                behavior_summary.append({
+                    "type": behavior.behavior_type,
+                    "strength": round(behavior.emergence_strength, 3),
+                    "stability": round(behavior.stability_score, 3),
+                    "agent_count": len(behavior.participating_agents),
+                    "pattern_key": pattern_key
+                })
+
+        # Summarize interaction patterns - key statistics only
+        interaction_summary = {
+            "communication_density": round(interaction_data.get("communication_patterns", {}).get("communication_density", 0.0), 3),
+            "avg_trust": round(interaction_data.get("communication_patterns", {}).get("average_trust", 0.0), 3),
+            "performance_variance": round(interaction_data.get("performance_metrics", {}).get("performance_variance", 0.0), 3),
+            "performance_trend": round(interaction_data.get("performance_metrics", {}).get("performance_trend", 0.0), 3)
+        }
+
+        # Role distribution summary
+        role_distribution = interaction_data.get("role_distribution", {})
+        dominant_roles = sorted(role_distribution.items(), key=lambda x: x[1], reverse=True)[:3]
+
+        # Agent capabilities summary - aggregated statistics
+        processing_powers = [agent.capabilities.processing_power for agent in agents]
+        learning_rates = [agent.capabilities.learning_rate for agent in agents]
+
+        agent_capabilities_summary = {
+            "avg_processing": round(float(np.mean(processing_powers)), 3),
+            "processing_variance": round(float(np.var(processing_powers)), 3),
+            "avg_learning_rate": round(float(np.mean(learning_rates)), 3),
+            "learning_rate_variance": round(float(np.var(learning_rates)), 3),
+            "total_agents": len(agents)
+        }
+
+        # Key insights extraction
+        insights = []
+
+        # Emergence insights
+        if emergence_metrics["clustering_strength"] > 0.7:
+            insights.append(f"Strong clustering detected ({emergence_metrics['clustering_strength']:.2f}) - agents forming tight groups")
+
+        if emergence_metrics["specialization_index"] > 0.6:
+            insights.append(f"High specialization ({emergence_metrics['specialization_index']:.2f}) - agents differentiating roles")
+
+        if emergence_metrics["coordination_level"] > 0.8:
+            insights.append(f"Excellent coordination ({emergence_metrics['coordination_level']:.2f}) - synchronized behavior")
+
+        if emergence_metrics["learning_coherence"] > 0.7:
+            insights.append(f"Coherent learning ({emergence_metrics['learning_coherence']:.2f}) - agents improving together")
+
+        # Behavior insights
+        if behavior_summary:
+            strongest_behavior = behavior_summary[0]
+            insights.append(f"Dominant behavior: {strongest_behavior['type']} (strength: {strongest_behavior['strength']})")
+
+            behavior_types = [b["type"] for b in behavior_summary]
+            if len(set(behavior_types)) > 2:
+                insights.append(f"Diverse behaviors: {len(set(behavior_types))} different patterns detected")
+
+        # Performance insights
+        avg_performance = interaction_summary["performance_variance"]
+        if avg_performance < 0.1:
+            insights.append("Low performance variance - agents performing consistently")
+        elif avg_performance > 0.3:
+            insights.append("High performance variance - significant agent differences")
+
+        # Communication insights
+        comm_density = interaction_summary["communication_density"]
+        if comm_density > 0.7:
+            insights.append("High communication density - extensive agent interactions")
+        elif comm_density < 0.3:
+            insights.append("Low communication density - limited agent interactions")
+
+        return {
+            "swarm_id": swarm_id,
+            "analysis_timestamp": time.time(),
+            "summary_type": "intelligent_summary",
+
+            # Core metrics (compact)
+            "emergence_metrics": emergence_metrics,
+            "behaviors_detected": len(detected_behaviors),
+
+            # Behavior summary (top behaviors only)
+            "top_behaviors": behavior_summary,
+
+            # Interaction patterns (key stats only)
+            "interaction_summary": interaction_summary,
+
+            # Role distribution (top 3 roles only)
+            "dominant_roles": dominant_roles,
+
+            # Agent capabilities (aggregated stats)
+            "agent_capabilities": agent_capabilities_summary,
+
+            # Key insights (human-readable)
+            "key_insights": insights,
+
+            # Metadata
+            "data_reduction": {
+                "original_behavior_count": len(detected_behaviors),
+                "summarized_behavior_count": len(behavior_summary),
+                "full_data_cached": f"{swarm_id}_emergence_full"
+            }
+        }
+
+    # ============================================================================
+    # SWARM LIBRARY MANAGEMENT METHODS
+    # ============================================================================
+
+    async def _auto_store_swarm_in_library(self, swarm_id: str, simulation_result: dict[str, Any]) -> None:
+        """Automatically store a swarm in the library after successful simulation."""
+        try:
+            # Get swarm configuration
+            swarm_config = {
+                'swarm_id': swarm_id,
+                'agent_count': simulation_result.get('overall_metrics', {}).get('total_cycles', 0),
+                'configuration': self.swarm_configs.get(swarm_id, {}),
+                'capabilities': simulation_result.get('final_analytics', {}).get('agent_capabilities', {}),
+                'timestamp': simulation_result.get('timestamp', time.time())
+            }
+
+            # Use empty emergence analysis if not available yet
+            emergence_analysis = self.analysis_cache.get(f"{swarm_id}_emergence_full", {
+                'behaviors_detected': 0,
+                'emergence_metrics': {},
+                'analysis_timestamp': time.time()
+            })
+
+            # Generate metadata for auto-storage
+            metadata_override = {
+                'creator': 'ELCS Framework (Auto-stored)',
+                'description': f'Auto-stored swarm with {swarm_config.get("agent_count", 0)} agents',
+                'tags': ['auto-stored', 'simulation'],
+                'research_category': 'simulation'
+            }
+
+            # Store in library
+            self.swarm_library.store_swarm(
+                swarm_id, swarm_config, simulation_result, emergence_analysis, metadata_override
+            )
+
+            logger.info(f"Auto-stored swarm {swarm_id} in library")
+
+        except Exception as e:
+            logger.warning(f"Failed to auto-store swarm {swarm_id}: {e}")
+
+    async def _update_swarm_in_library(self, swarm_id: str, emergence_analysis: dict[str, Any]) -> None:
+        """Update an existing swarm in the library with new emergence data."""
+        try:
+            # Check if swarm exists in library
+            if swarm_id not in self.swarm_library.metadata_index:
+                return  # Swarm not in library, skip update
+
+            # Load existing swarm data
+            existing_data = self.swarm_library.load_swarm(swarm_id)
+            if not existing_data:
+                return
+
+            # Update emergence analysis
+            existing_data['emergence_analysis'] = emergence_analysis
+
+            # Update metadata
+            metadata = self.swarm_library.metadata_index[swarm_id]
+            metadata.last_updated = time.time()
+
+            # Extract new behavioral patterns
+            top_behaviors = emergence_analysis.get('top_behaviors', [])
+            new_behaviors = [b.get('type', 'unknown') for b in top_behaviors]
+
+            # Merge with existing behaviors (keep unique)
+            all_behaviors = list(set(metadata.dominant_behaviors + new_behaviors))
+            metadata.dominant_behaviors = all_behaviors
+
+            # Update coordination metrics
+            new_metrics = emergence_analysis.get('emergence_metrics', {})
+            metadata.coordination_metrics.update(new_metrics)
+
+            # Re-store updated data
+            self.swarm_library.store_swarm(
+                swarm_id,
+                existing_data.get('swarm_config', {}),
+                existing_data.get('simulation_results', {}),
+                emergence_analysis,
+                {'last_updated': time.time()}
+            )
+
+            logger.info(f"Updated swarm {swarm_id} in library with new emergence data")
+
+        except Exception as e:
+            logger.warning(f"Failed to update swarm {swarm_id} in library: {e}")
+
+    async def store_swarm_in_library(self,
+                                   swarm_id: str,
+                                   description: str = "",
+                                   tags: Optional[list[str]] = None,
+                                   research_category: str = "general",
+                                   experiment_notes: str = "") -> dict[str, Any]:
+        """
+        Manually store a swarm in the library with custom metadata.
+
+        Args:
+            swarm_id: ID of swarm to store
+            description: Custom description for the swarm
+            tags: Custom tags for categorization
+            research_category: Research category for organization
+            experiment_notes: Detailed notes about the experiment
+
+        Returns:
+            Storage result with library path and metadata
+        """
+        try:
+            if swarm_id not in self.active_swarms:
+                raise ELCSIntegrationError(f"Swarm '{swarm_id}' not found in active swarms")
+
+            # Get swarm data
+            swarm_config = {
+                'swarm_id': swarm_id,
+                'configuration': self.swarm_configs.get(swarm_id, {}),
+                'timestamp': time.time()
+            }
+
+            # Get simulation results
+            simulation_results = self.simulation_results.get(swarm_id, {
+                'swarm_id': swarm_id,
+                'status': 'active',
+                'timestamp': time.time()
+            })
+
+            # Get emergence analysis
+            emergence_analysis = self.analysis_cache.get(f"{swarm_id}_emergence_full", {
+                'swarm_id': swarm_id,
+                'analysis_timestamp': time.time(),
+                'behaviors_detected': 0
+            })
+
+            # Custom metadata
+            metadata_override = {
+                'creator': 'ELCS Framework (Manual)',
+                'description': description or f'Manually stored swarm: {swarm_id}',
+                'tags': tags or ['manual', 'stored'],
+                'research_category': research_category,
+                'experiment_notes': experiment_notes
+            }
+
+            # Store in library
+            storage_path = self.swarm_library.store_swarm(
+                swarm_id, swarm_config, simulation_results, emergence_analysis, metadata_override
+            )
+
+            result = {
+                'swarm_id': swarm_id,
+                'storage_status': 'success',
+                'storage_path': storage_path,
+                'metadata': metadata_override,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Manually stored swarm {swarm_id} in library")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to store swarm in library: {e}")
+
+    async def search_swarm_library(self,
+                                 query: str = "",
+                                 tags: Optional[list[str]] = None,
+                                 behavior_types: Optional[list[str]] = None,
+                                 performance_range: Optional[tuple[float, float]] = None,
+                                 research_category: Optional[str] = None,
+                                 limit: int = 20) -> dict[str, Any]:
+        """
+        Search the swarm library with fuzzy matching and filtering.
+
+        Args:
+            query: Fuzzy text search query
+            tags: Filter by tags
+            behavior_types: Filter by behavior types
+            performance_range: Filter by performance range (min, max)
+            research_category: Filter by research category
+            limit: Maximum number of results
+
+        Returns:
+            Search results with relevance scores and metadata
+        """
+        try:
+            # Perform search
+            search_results = self.swarm_library.search_swarms(
+                query=query,
+                tags=tags,
+                behavior_types=behavior_types,
+                performance_range=performance_range,
+                research_category=research_category,
+                limit=limit
+            )
+
+            # Get library statistics
+            library_stats = self.swarm_library.get_library_stats()
+
+            result = {
+                'search_query': {
+                    'query': query,
+                    'tags': tags,
+                    'behavior_types': behavior_types,
+                    'performance_range': performance_range,
+                    'research_category': research_category,
+                    'limit': limit
+                },
+                'results_count': len(search_results),
+                'results': search_results,
+                'library_stats': library_stats,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Searched swarm library: {len(search_results)} results for query '{query}'")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to search swarm library: {e}")
+
+    async def load_swarm_from_library(self, swarm_id: str) -> dict[str, Any]:
+        """
+        Load a swarm from the library with all its data.
+
+        Args:
+            swarm_id: ID of swarm to load
+
+        Returns:
+            Complete swarm data including metadata, config, and results
+        """
+        try:
+            swarm_data = self.swarm_library.load_swarm(swarm_id)
+
+            if not swarm_data:
+                raise ELCSIntegrationError(f"Swarm '{swarm_id}' not found in library")
+
+            result = {
+                'swarm_id': swarm_id,
+                'load_status': 'success',
+                'swarm_data': swarm_data,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Loaded swarm {swarm_id} from library")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to load swarm from library: {e}")
+
+    async def get_library_analytics(self) -> dict[str, Any]:
+        """
+        Get comprehensive analytics about the swarm library.
+
+        Returns:
+            Library analytics including statistics, trends, and insights
+        """
+        try:
+            # Get basic library stats
+            library_stats = self.swarm_library.get_library_stats()
+
+            # Get behavior statistics
+            behavior_stats = self.swarm_library.get_behavior_statistics()
+
+            # Get performance analytics
+            performance_analytics = self.swarm_library.get_performance_analytics()
+
+            result = {
+                'library_overview': library_stats,
+                'behavior_analysis': behavior_stats,
+                'performance_analysis': performance_analytics,
+                'analysis_timestamp': time.time()
+            }
+
+            logger.info("Generated comprehensive library analytics")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to get library analytics: {e}")
+
+    async def export_swarm_from_library(self, swarm_id: str, export_path: Optional[str] = None) -> dict[str, Any]:
+        """
+        Export a swarm from the library to a portable format.
+
+        Args:
+            swarm_id: ID of swarm to export
+            export_path: Optional custom export path
+
+        Returns:
+            Export result with file path and metadata
+        """
+        try:
+            export_file_path = self.swarm_library.export_swarm(swarm_id, export_path)
+
+            result = {
+                'swarm_id': swarm_id,
+                'export_status': 'success',
+                'export_path': export_file_path,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Exported swarm {swarm_id} to {export_file_path}")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to export swarm: {e}")
+
+    async def import_swarm_to_library(self, import_path: str, new_swarm_id: Optional[str] = None) -> dict[str, Any]:
+        """
+        Import a swarm into the library from exported format.
+
+        Args:
+            import_path: Path to exported swarm file
+            new_swarm_id: Optional new ID for imported swarm
+
+        Returns:
+            Import result with new swarm ID and metadata
+        """
+        try:
+            imported_swarm_id = self.swarm_library.import_swarm(import_path, new_swarm_id)
+
+            result = {
+                'import_status': 'success',
+                'original_path': import_path,
+                'imported_swarm_id': imported_swarm_id,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Imported swarm as {imported_swarm_id} from {import_path}")
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to import swarm: {e}")
+
+    async def delete_swarm_from_library(self, swarm_id: str) -> dict[str, Any]:
+        """
+        Delete a swarm from the library.
+
+        Args:
+            swarm_id: ID of swarm to delete
+
+        Returns:
+            Deletion result
+        """
+        try:
+            success = self.swarm_library.delete_swarm(swarm_id)
+
+            result = {
+                'swarm_id': swarm_id,
+                'deletion_status': 'success' if success else 'failed',
+                'timestamp': time.time()
+            }
+
+            if success:
+                logger.info(f"Deleted swarm {swarm_id} from library")
+            else:
+                logger.warning(f"Failed to delete swarm {swarm_id} from library")
+
+            return result
+
+        except Exception as e:
+            raise ELCSIntegrationError(f"Failed to delete swarm from library: {e}")
+

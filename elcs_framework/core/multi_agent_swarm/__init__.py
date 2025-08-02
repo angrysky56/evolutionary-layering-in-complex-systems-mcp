@@ -709,7 +709,7 @@ class EmergenceBehaviorDetector:
             emergence_strength = (specialization_ratio + role_diversity) / 2
 
             if emergence_strength > self.detection_threshold:
-                return EmergentBehavior(
+                behavior = EmergentBehavior(
                     behavior_type="specialization",
                     participating_agents=specialized_agents,
                     emergence_strength=emergence_strength,
@@ -719,6 +719,7 @@ class EmergenceBehaviorDetector:
                         "unique_roles": len(role_counts)
                     }
                 )
+                return behavior
 
         return None
 
@@ -867,7 +868,16 @@ class EmergenceBehaviorDetector:
                 self.behavior_history[behavior_key] = self.behavior_history[behavior_key][-self.stability_window:]
 
             # Check stability - behavior should be consistently detected
-            if len(self.behavior_history[behavior_key]) >= min(3, self.stability_window):
+            # For very strong behaviors (>= 2x threshold), allow immediate detection
+            # For others, require stability across multiple detections
+            history_length = len(self.behavior_history[behavior_key])
+            min_history_required = min(3, self.stability_window)
+
+            if behavior.emergence_strength >= (self.detection_threshold * 2.0):
+                # Very strong behaviors can be detected immediately
+                behavior.stability_score = float(behavior.emergence_strength)
+                stable_behaviors.append(behavior)
+            elif history_length >= min_history_required:
                 recent_detections = self.behavior_history[behavior_key][-3:]
                 stability_score = np.mean(recent_detections) if recent_detections else 0.0
 
@@ -876,8 +886,6 @@ class EmergenceBehaviorDetector:
                     stable_behaviors.append(behavior)
 
         return stable_behaviors
-
-
 class CollectiveDecisionMaker:
     """
     Implements various collective decision-making algorithms for swarm intelligence

@@ -419,6 +419,343 @@ async def optimize_swarm_parameters(
         raise
 
 
+@mcp.tool()
+async def get_detailed_analysis(
+    ctx: Context,
+    swarm_id: str,
+    analysis_type: str = "emergence"
+) -> str:
+    """
+    Retrieve detailed (full) analysis data for specific swarm.
+
+    Use this when you need the complete, unfiltered analysis data that was
+    cached during summarized analysis operations. This provides access to
+    full behavior details, complete interaction matrices, and raw agent data.
+
+    Args:
+        swarm_id: ID of swarm to get detailed data for
+        analysis_type: Type of analysis ("emergence", "simulation")
+
+    Returns:
+        JSON string with complete detailed analysis data
+
+    Example:
+        get_detailed_analysis("research_swarm_01", "emergence")
+    """
+    try:
+        await ctx.info(f"Retrieving detailed {analysis_type} analysis for swarm: {swarm_id}")
+
+        result = await framework_manager.get_detailed_analysis(
+            swarm_id=swarm_id,
+            analysis_type=analysis_type
+        )
+
+        if "error" in result:
+            await ctx.warning(f"Detailed analysis not available: {result['error']}")
+        else:
+            await ctx.info(f"Retrieved detailed {analysis_type} analysis with full data")
+
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error retrieving detailed analysis: {e}")
+        raise
+
+
+# =============================================================================
+# SWARM LIBRARY MANAGEMENT TOOLS
+# =============================================================================
+
+@mcp.tool()
+async def store_swarm_in_library(
+    ctx: Context,
+    swarm_id: str,
+    description: str = "",
+    tags: str = "",
+    research_category: str = "general",
+    experiment_notes: str = ""
+) -> str:
+    """
+    Store a swarm in the persistent library with custom metadata.
+
+    Preserves all swarm data, simulation results, and emergence analysis
+    in a searchable, organized library system for future reference and analysis.
+
+    Args:
+        swarm_id: ID of swarm to store in library
+        description: Custom description for the swarm
+        tags: Comma-separated list of tags for categorization
+        research_category: Research category for organization
+        experiment_notes: Detailed notes about the experiment
+
+    Returns:
+        JSON string with storage result and library metadata
+
+    Example:
+        store_swarm_in_library("advanced_swarm_01",
+                             "High-performance coordination experiment",
+                             "coordination,leadership,optimization",
+                             "leadership_dynamics",
+                             "Testing emergent leadership patterns in high-stress scenarios")
+    """
+    try:
+        await ctx.info(f"Storing swarm {swarm_id} in library")
+
+        # Parse tags from comma-separated string
+        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else []
+
+        result = await framework_manager.store_swarm_in_library(
+            swarm_id=swarm_id,
+            description=description,
+            tags=tag_list,
+            research_category=research_category,
+            experiment_notes=experiment_notes
+        )
+
+        await ctx.info(f"Successfully stored swarm {swarm_id} in library at {result.get('storage_path', 'unknown')}")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error storing swarm in library: {e}")
+        raise
+
+
+@mcp.tool()
+async def search_swarm_library(
+    ctx: Context,
+    query: str = "",
+    tags: str = "",
+    behavior_types: str = "",
+    performance_min: float | None = None,
+    performance_max: float | None = None,
+    research_category: str = "",
+    limit: int = 20
+) -> str:
+    """
+    Search the swarm library with fuzzy matching and advanced filtering.
+
+    Provides powerful search capabilities across all stored swarms with
+    relevance scoring, behavioral pattern matching, and performance filtering.
+
+    Args:
+        query: Fuzzy text search in descriptions, notes, and metadata
+        tags: Comma-separated list of tags to filter by
+        behavior_types: Comma-separated list of behavior types (specialization, coordination, etc.)
+        performance_min: Minimum performance threshold for filtering
+        performance_max: Maximum performance threshold for filtering
+        research_category: Filter by specific research category
+        limit: Maximum number of results to return
+
+    Returns:
+        JSON string with search results and relevance scores
+
+    Example:
+        search_swarm_library("leadership coordination",
+                           "leadership,coordination",
+                           "specialization,coordination",
+                           0.7, 1.0, "leadership_dynamics", 10)
+    """
+    try:
+        await ctx.info(f"Searching swarm library with query: '{query}'")
+
+        # Parse parameters
+        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else None
+        behavior_list = [behavior.strip() for behavior in behavior_types.split(",") if behavior.strip()] if behavior_types else None
+        performance_range = None
+        if performance_min is not None or performance_max is not None:
+            performance_range = (performance_min or 0.0, performance_max or 1.0)
+        category = research_category if research_category else None
+
+        result = await framework_manager.search_swarm_library(
+            query=query,
+            tags=tag_list,
+            behavior_types=behavior_list,
+            performance_range=performance_range,
+            research_category=category,
+            limit=limit
+        )
+
+        results_count = result.get('results_count', 0)
+        await ctx.info(f"Found {results_count} matching swarms in library")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error searching swarm library: {e}")
+        raise
+
+
+@mcp.tool()
+async def load_swarm_from_library(
+    ctx: Context,
+    swarm_id: str
+) -> str:
+    """
+    Load a complete swarm from the library with all its data.
+
+    Retrieves all stored data including configuration, simulation results,
+    emergence analysis, and metadata for a specific swarm.
+
+    Args:
+        swarm_id: ID of swarm to load from library
+
+    Returns:
+        JSON string with complete swarm data
+
+    Example:
+        load_swarm_from_library("advanced_swarm_01")
+    """
+    try:
+        await ctx.info(f"Loading swarm {swarm_id} from library")
+
+        result = await framework_manager.load_swarm_from_library(swarm_id)
+
+        await ctx.info(f"Successfully loaded swarm {swarm_id} with complete data")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error loading swarm from library: {e}")
+        raise
+
+
+@mcp.tool()
+async def get_library_analytics(ctx: Context) -> str:
+    """
+    Get comprehensive analytics about the swarm library.
+
+    Provides detailed statistics, behavioral analysis, performance trends,
+    and insights across all stored swarms in the library.
+
+    Returns:
+        JSON string with comprehensive library analytics
+
+    Example:
+        get_library_analytics()
+    """
+    try:
+        await ctx.info("Generating comprehensive library analytics")
+
+        result = await framework_manager.get_library_analytics()
+
+        total_swarms = result.get('library_overview', {}).get('total_swarms', 0)
+        await ctx.info(f"Generated analytics for {total_swarms} swarms in library")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error generating library analytics: {e}")
+        raise
+
+
+@mcp.tool()
+async def export_swarm_from_library(
+    ctx: Context,
+    swarm_id: str,
+    export_path: str = ""
+) -> str:
+    """
+    Export a swarm from the library to a portable format.
+
+    Creates a self-contained export file that can be shared, archived,
+    or imported into other ELCS Framework instances.
+
+    Args:
+        swarm_id: ID of swarm to export
+        export_path: Optional custom export path (auto-generated if not provided)
+
+    Returns:
+        JSON string with export result and file location
+
+    Example:
+        export_swarm_from_library("advanced_swarm_01", "/path/to/export.json")
+    """
+    try:
+        await ctx.info(f"Exporting swarm {swarm_id} from library")
+
+        export_file = export_path if export_path else None
+        result = await framework_manager.export_swarm_from_library(swarm_id, export_file)
+
+        export_location = result.get('export_path', 'unknown')
+        await ctx.info(f"Successfully exported swarm to {export_location}")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error exporting swarm from library: {e}")
+        raise
+
+
+@mcp.tool()
+async def import_swarm_to_library(
+    ctx: Context,
+    import_path: str,
+    new_swarm_id: str = ""
+) -> str:
+    """
+    Import a swarm into the library from exported format.
+
+    Loads a previously exported swarm file and adds it to the current
+    library, preserving all data and metadata.
+
+    Args:
+        import_path: Path to exported swarm file
+        new_swarm_id: Optional new ID for imported swarm (auto-generated if conflicts)
+
+    Returns:
+        JSON string with import result and new swarm ID
+
+    Example:
+        import_swarm_to_library("/path/to/export.json", "imported_swarm_01")
+    """
+    try:
+        await ctx.info(f"Importing swarm from {import_path}")
+
+        new_id = new_swarm_id if new_swarm_id else None
+        result = await framework_manager.import_swarm_to_library(import_path, new_id)
+
+        imported_id = result.get('imported_swarm_id', 'unknown')
+        await ctx.info(f"Successfully imported swarm as {imported_id}")
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error importing swarm to library: {e}")
+        raise
+
+
+@mcp.tool()
+async def delete_swarm_from_library(
+    ctx: Context,
+    swarm_id: str
+) -> str:
+    """
+    Delete a swarm from the library permanently.
+
+    WARNING: This permanently removes all data for the specified swarm.
+    Consider exporting the swarm first if you might need it later.
+
+    Args:
+        swarm_id: ID of swarm to delete from library
+
+    Returns:
+        JSON string with deletion result
+
+    Example:
+        delete_swarm_from_library("old_experiment_swarm")
+    """
+    try:
+        await ctx.warning(f"Deleting swarm {swarm_id} from library - this is permanent!")
+
+        result = await framework_manager.delete_swarm_from_library(swarm_id)
+
+        if result.get('deletion_status') == 'success':
+            await ctx.info(f"Successfully deleted swarm {swarm_id} from library")
+        else:
+            await ctx.warning(f"Failed to delete swarm {swarm_id} from library")
+
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        await ctx.error(f"Error deleting swarm from library: {e}")
+        raise
+
+
 # =============================================================================
 # MCP RESOURCES - Enhanced-ELCS Documentation and Templates
 # =============================================================================
